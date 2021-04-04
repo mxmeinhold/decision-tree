@@ -1,0 +1,5 @@
+mypy
+pylint
+pylint-quotes
+git+https://github.com/python/typed_ast@adfe297ef203b73623536420b2d92fae7388ef6b#egg=typed_ast
+git+https://github.com/mxmeinhold/pylint-fixme-info
