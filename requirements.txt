@@ -1,6 +1,6 @@
 mypy
 pylint
-git+https://github.com/mxmeinhold/pylint-fixme-info
+pylint-fixme-info
 pylint-quotes
 setuptools>=42
 twine
