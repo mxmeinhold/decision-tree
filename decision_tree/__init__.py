@@ -1,5 +1,4 @@
 """A statically typed decision tree"""
-from itertools import filterfalse
 from typing import (
     Any,
     Callable,
@@ -20,7 +19,8 @@ Metric = bool
 Classifier = Callable[[DataPoint], Metric]
 
 
-def _return_true(arg: Any) -> Literal[True]: # pylint: disable=unused-argument
+def _return_true(*_: Any) -> Literal[True]:
+    """Always return true, discarding any arguments"""
     return True
 
 
@@ -49,8 +49,11 @@ class Model(Generic[DataPoint, Outcome]):
         self.right = right
 
 
-    def decide(self, datapoint: DataPoint) -> Outcome:
-        """Predict an Outcome for the given datapoint"""
+    def decide(self, datapoint: DataPoint) -> Optional[Outcome]:
+        """
+        Predict an Outcome for the given datapoint
+        :returns: the prediction if predictable else None
+        """
 
         left = self.classifier(datapoint)
         if left and self.left is not None:
@@ -59,7 +62,7 @@ class Model(Generic[DataPoint, Outcome]):
             return self.right.decide(datapoint)
         if self.middle is not None:
             return self.middle
-        raise Exception('Undecidable')
+        return None
 
 
     def __repr__(self) -> str:
@@ -114,33 +117,38 @@ class DecisionTree(Generic[DataPoint, Outcome]):
         if len(set(outcomes)) == 1:
             return Model(outcomes[0])
 
-        # Else:
-        # Pick the best classifier TODO
-#       def score(
-#           left_asdf: Iterable[tuple[DataPoint, Outcome]],
-#           right_asdf: Iterable[tuple[DataPoint, Outcome]],
-#       ):
-#            left = list(map(lambda d: d[1], left_asdf))
-#            right = list(map(lambda d: d[1], right_asdf))
-#            scores = tuple(map(lambda o: abs(left.count(o) - right.count(o)), outcomes))
-#
-#        foo = [
-#                (
-#                    classifier,
-#                    list(filter(lambda d: classifier(d[0]), data)),
-#                    list(filter(lambda d: not classifier(d[0]), data)),
-#                )
-#                for classifier in classifiers
-#            ]
+        # Else pick the best classifier
+        def score(
+            left_asdf: Iterable[tuple[DataPoint, Outcome]],
+            right_asdf: Iterable[tuple[DataPoint, Outcome]],
+        ) -> int:
+            left = list(map(lambda d: d[1], left_asdf))
+            right = list(map(lambda d: d[1], right_asdf))
+            scores = tuple(map(lambda o: abs(left.count(o) - right.count(o)), set(outcomes)))
+            return sum(scores)
+
+        classified = [
+            (
+                classifier,
+                [d for d in data if classifier(d[0])],
+                [d for d in data if not classifier(d[0])],
+            )
+            for classifier in classifiers
+        ]
+
+        l_classifiers = sorted(classified, key=lambda f: score(f[1], f[2]))
+        first = l_classifiers[0]
+        others = list(map(lambda f: f[0], l_classifiers[1:]))
+
         # Make a new model
         return Model(
             None,
-            classifier=classifiers[0],
-            left=self._train(classifiers[1:],
-                list(filter(lambda d: classifiers[0](d[0]), data))
+            classifier=first[0],
+            left=self._train(others,
+                first[1]
             ),
-            right=self._train(classifiers[1:],
-                list(filterfalse(lambda d: classifiers[0](d[0]), data))
+            right=self._train(others,
+               first[2]
             ),
         )
 
@@ -150,6 +158,9 @@ class DecisionTree(Generic[DataPoint, Outcome]):
         self.training_set.extend(data)
 
 
-    def decide(self, datapoint: DataPoint) -> Outcome:
-        """Get the decision tree's prediction for the given datapoint"""
+    def decide(self, datapoint: DataPoint) -> Optional[Outcome]:
+        """
+        Get the decision tree's prediction for the given datapoint
+        :returns: The prediction or None if undecidable
+        """
         return self.model.decide(datapoint)
